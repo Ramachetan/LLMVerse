@@ -10,11 +10,11 @@ SYSTEM = """You are a helpful assistant. You can call tools to perform specific 
 
 load_dotenv()
 
-API_KEY = os.getenv("API_KEY")
+API_KEY = os.getenv("GEMINI_API_KEY")
 
 
 client = AsyncOpenAI(
-    api_key="AIzaSyDbfYYwjACy6B6ciVeT5rWQCupxv-XyBnc",
+    api_key=API_KEY,
     base_url="https://generativelanguage.googleapis.com/v1beta/openai/"
 )
 

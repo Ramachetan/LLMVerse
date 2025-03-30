@@ -2,9 +2,13 @@ import google.generativeai as genai
 from deepeval import evaluate
 from deepeval.test_case import LLMTestCase, ToolCall
 from deepeval.metrics import ToolCorrectnessMetric
+from dotenv import load_dotenv
+import os
+# from google.colab import userdata
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 
 # Configure Gemini Flash model
-genai.configure(api_key="AIzaSyBuU0xrw9W5DyP1V0nwP2aj5--GCjuebUU")
+genai.configure(api_key=GEMINI_API_KEY)
 model = genai.GenerativeModel("gemini-2.5-pro-exp-03-25")
 
 # Define tools

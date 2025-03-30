@@ -1,0 +1,7 @@
+websockets
+google-genai
+python-dotenv
+opencv-python  
+pyaudio  
+pillow  
+mss

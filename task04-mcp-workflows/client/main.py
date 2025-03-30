@@ -12,8 +12,9 @@ load_dotenv()
 
 API_KEY = os.getenv("API_KEY")
 
+
 client = AsyncOpenAI(
-    api_key=API_KEY,
+    api_key="AIzaSyDbfYYwjACy6B6ciVeT5rWQCupxv-XyBnc",
     base_url="https://generativelanguage.googleapis.com/v1beta/openai/"
 )
 

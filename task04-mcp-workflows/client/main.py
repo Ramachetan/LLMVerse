@@ -22,8 +22,8 @@ client = AsyncOpenAI(
 # Select your desired Gemini model
 MODEL_NAME = "gemini-2.0-flash"
 
-SYSTEM_PROMPT = "You are a helpful assistant that can use tools."
-# ---------------
+with open("system.md", "r") as f:
+    SYSTEM_PROMPT = f.read()
 
 # Helper to flatten nested lists
 def flatten(xss):
@@ -216,8 +216,6 @@ async def call_gemini(chat_messages):
     except Exception as e:
         error_message = f"Error calling Gemini API: {e}"
         print(error_message)
-        await msg.setError(error_message)
-        await msg.update()
         return None # Indicate failure
 
 @cl.on_chat_start

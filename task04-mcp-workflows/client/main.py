@@ -55,7 +55,6 @@ async def on_mcp_connect(connection, session: ClientSession):
 
         tool_names = [t['name'] for t in tools_metadata]
         print(f"Successfully connected to MCP '{connection.name}' and found tools: {tool_names}")
-        await cl.Message(content=f"Connected to MCP server '{connection.name}' and found tools: {', '.join(tool_names)}").send()
 
     except Exception as e:
         print(f"Error connecting to or listing tools for MCP '{connection.name}': {e}")
@@ -269,7 +268,6 @@ async def start_chat():
     cl.user_session.set("chat_messages", [{"role": "system", "content": SYSTEM_PROMPT}])
     cl.user_session.set("mcp_tools", {}) # Initialize MCP tools dictionary
     print("Chat started. Initialized chat history and MCP tools.")
-    await cl.Message(content="Hello! How can I help you today? Connect to MCP servers using the bolt icon (⚡️) to enable tools.").send()
 
 
 @cl.on_message

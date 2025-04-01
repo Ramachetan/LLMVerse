@@ -22,8 +22,10 @@ client = AsyncOpenAI(
 # Select your desired Gemini model
 MODEL_NAME = "gemini-2.0-flash"
 
-with open("system.md", "r") as f:
-    SYSTEM_PROMPT = f.read()
+def get_system_prompt():
+    """Read the system prompt from file, ensuring we always get the latest version."""
+    with open("system.md", "r") as f:
+        return f.read()
 
 # Helper to flatten nested lists
 def flatten(xss):
@@ -221,8 +223,9 @@ async def call_gemini(chat_messages):
 @cl.on_chat_start
 async def start_chat():
     """Initializes chat history and MCP tool storage on new chat session."""
-    cl.user_session.set("chat_messages", [{"role": "system", "content": SYSTEM_PROMPT}])
-    cl.user_session.set("mcp_tools", {}) # Initialize empty dict for MCP tools
+    system_prompt = get_system_prompt() 
+    cl.user_session.set("chat_messages", [{"role": "system", "content": system_prompt}])
+    cl.user_session.set("mcp_tools", {})  # Initialize empty dict for MCP tools
     print("Chat started. Initialized history and MCP tools storage.")
 
 @cl.on_message

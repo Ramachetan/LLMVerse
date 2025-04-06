@@ -8,19 +8,25 @@ from mcp import ClientSession # Assuming this is correctly imported for Chainlit
 # --- Configuration ---
 load_dotenv()
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-if not GEMINI_API_KEY:
-    raise ValueError("GEMINI_API_KEY not found in environment variables.")
+API_KEY = os.getenv("API_KEY")
+if not API_KEY:
+    raise ValueError("API_KEY not found in environment variables.")
+
+BASE_URL = os.getenv("BASE_URL")
+if not BASE_URL:
+    raise ValueError("BASE_URL not found in environment variables.")
 
 # Initialize OpenAI client pointing to Gemini endpoint
 # Use AsyncOpenAI for compatibility with Chainlit's async nature
 client = AsyncOpenAI(
-    api_key=GEMINI_API_KEY,
-    base_url="https://generativelanguage.googleapis.com/v1beta"
+    api_key=API_KEY,
+    base_url=BASE_URL,
 )
 
 # Select your desired Gemini model
 MODEL_NAME = "gemini-2.0-flash"
+
+print(f"Using model: {MODEL_NAME}")
 
 def get_system_prompt():
     """Read the system prompt from file, ensuring we always get the latest version."""
@@ -168,8 +174,10 @@ async def call_gemini(chat_messages):
     Calls the Gemini model via the OpenAI SDK, handles streaming, and tool calls.
     Uses a non-streaming call at the end to reliably get tool call details.
     """
+    # We'll create the message object but not send it immediately
+    # We'll only send it if we actually receive content
     msg = cl.Message(content="")
-    await msg.send() # Send message shell for streaming
+    message_sent = False
 
     mcp_tools_by_connection = cl.user_session.get("mcp_tools", {})
     tools_for_openai = format_mcp_tools_for_openai(mcp_tools_by_connection)
@@ -200,10 +208,18 @@ async def call_gemini(chat_messages):
         async for chunk in stream_resp:
             delta = chunk.choices[0].delta
             if delta and delta.content:
+                # Only send the message once we know there's content
+                if not message_sent:
+                    await msg.send()
+                    message_sent = True
                 await msg.stream_token(delta.content)
 
-        await msg.update() # Finalize the streamed message in UI
-        print("Streaming finished.")
+        # Only update the message if we actually sent it
+        if message_sent:
+            await msg.update()  # Finalize the streamed message in UI
+            print("Streaming finished.")
+        else:
+            print("No content to stream, skipping message creation.")
 
         # --- Non-streaming call to reliably get final message object (with tool calls) ---
         # This avoids complex stream aggregation logic for tool calls.
@@ -218,6 +234,9 @@ async def call_gemini(chat_messages):
     except Exception as e:
         error_message = f"Error calling Gemini API: {e}"
         print(error_message)
+        # Only send an error message if we haven't already sent a message
+        if not message_sent:
+            await cl.ErrorMessage(error_message).send()
         return None # Indicate failure
 
 @cl.on_chat_start

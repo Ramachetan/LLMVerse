@@ -8,6 +8,7 @@ dependencies = [
     "browser-use>=0.1.40",
     "fastapi>=0.115.12",
     "langchain-google-genai>=2.1.2",
+    "plotly>=6.0.1",
     "python-dotenv>=1.0.0",
     "streamlit>=1.44.1",
     "uvicorn>=0.34.0",

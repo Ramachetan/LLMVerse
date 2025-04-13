@@ -2,8 +2,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--Neutral-20);
-  color: var(--Neutral-60);
+  background: var(--Neutral-40, #6e7173);
+  color: white;
   font-size: 1.25rem;
   line-height: 1.75rem;
   text-transform: lowercase;
@@ -13,18 +13,19 @@
   width: 48px;
   height: 48px;
   border-radius: 18px;
-  border: 1px solid rgba(0, 0, 0, 0);
+  border: 1px solid rgba(0, 0, 0, 0.1);
   user-select: none;
   cursor: pointer;
 
   &:focus {
-    border: 2px solid var(--Neutral-20);
-    outline: 2px solid var(--Neutral-80);
+    border: 2px solid var(--Neutral-50, #505456);
+    outline: 2px solid var(--Neutral-80, #202325);
   }
 
   &.outlined {
-    background: var(--Neutral-2);
-    border: 1px solid var(--Neutral-20);
+    background: var(--Neutral-20, #d0d1d2);
+    border: 1px solid var(--Neutral-40, #6e7173);
+    color: var(--Neutral-80, #202325);
   }
 
   .no-action {
@@ -32,16 +33,17 @@
   }
 
   &:hover {
-    background: rgba(0, 0, 0, 0);
-    border: 1px solid var(--Neutral-20);
+    background: var(--Neutral-30, #a0a2a4);
+    border: 1px solid var(--Neutral-50, #505456);
   }
 
   &.connected {
-    background: var(--Blue-800);
-    color: var(--Blue-500);
+    background: var(--Blue-600, #1a69c4);
+    color: white;
 
     &:hover {
-      border: 1px solid var(--Blue-500);
+      background: var(--Blue-500, #2a7ad4);
+      border: 1px solid var(--Blue-800, #0a4994);
     }
   }
 }
@@ -55,24 +57,24 @@
 .disabled .mic-button,
 .mic-button.disabled {
   &:before {
-    background: rgba(0, 0, 0, 0);
+    background: rgba(255, 0, 0, 0);
   }
 }
 
 .mic-button {
   position: relative;
-  background-color: var(--accent-red);
+  background-color: var(--accent-red, #e74c3c);
   z-index: 1;
-  color: black;
+  color: white;
   transition: all 0.2s ease-in;
 
   &:focus {
-    border: 2px solid var(--Neutral-20);
-    outline: 2px solid var(--Red-500);
+    border: 2px solid var(--Neutral-20, #d0d1d2);
+    outline: 2px solid var(--Red-700, #a82315);
   }
 
   &:hover {
-    background-color: var(--Red-400);
+    background-color: var(--Red-600, #c0392b);
   }
 
   &:before {
@@ -83,7 +85,7 @@
     display: block;
     content: "";
     opacity: 0.35;
-    background-color: var(--Red-500);
+    background-color: var(--Red-500, #e74c3c);
     width: calc(100% + var(--volume) * 2);
     height: calc(100% + var(--volume) * 2);
     border-radius: 24px;
@@ -93,13 +95,17 @@
 
 .connect-toggle {
   &:focus {
-    border: 2px solid var(--Neutral-20);
-    outline: 2px solid var(--Neutral-80);
+    border: 2px solid var(--Neutral-20, #d0d1d2);
+    outline: 2px solid var(--Blue-700, #0a5cb0);
   }
 
   &:not(.connected) {
-    background-color: var(--Blue-500);
-    color: var(--Neutral-5);
+    background-color: var(--Blue-600, #1a69c4);
+    color: white;
+
+    &:hover {
+      background-color: var(--Blue-500, #2a7ad4);
+    }
   }
 }
 
@@ -116,9 +122,9 @@
 
   .disabled .action-button,
   .action-button.disabled {
-    background: rgba(0, 0, 0, 0);
-    border: 1px solid var(--Neutral-30, #404547);
-    color: var(--Neutral-30);
+    background: var(--Neutral-20, #d0d1d2);
+    border: 1px solid var(--Neutral-30, #a0a2a4);
+    color: var(--Neutral-50, #505456);
   }
 
   .connection-container {
@@ -130,14 +136,15 @@
 
     .connection-button-container {
       border-radius: 27px;
-      border: 1px solid var(--Neutral-30);
-      background: var(--Neutral-5);
+      border: 1px solid var(--Neutral-30, #a0a2a4);
+      background: white;
       padding: 10px;
     }
 
     .text-indicator {
       font-size: 11px;
-      color: var(--Blue-500);
+      color: var(--Blue-600, #1a69c4);
+      font-weight: bold;
       user-select: none;
     }
 
@@ -150,15 +157,15 @@
 }
 
 .actions-nav {
-  background: var(--Neutral-5);
-  border: 1px solid var(--Neutral-30);
+  background: white;
+  border: 1px solid var(--Neutral-30, #a0a2a4);
   border-radius: 27px;
   display: inline-flex;
   gap: 12px;
   align-items: center;
   overflow: clip;
   padding: 10px;
-
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   transition: all 0.6s ease-in;
 
   &>* {

@@ -1,86 +1,30 @@
-/* Light Mode Color Palette */
-:root {
-  --background-color: #F8F9FA;
-  --panel-bg: #FFFFFF;
-  --text-primary: #333333;
-  --text-secondary: #666666;
-  --accent-green: #4CAF50;
-  --accent-blue: #2196F3;
-  --accent-purple: #9C27B0;
-  --border-color: #E0E0E0;
-  --highlight-bg: #F1F5F9;
-  --code-bg: #F5F7F9;
-  --shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  --timestamp-color: #757575;
-  --count-bg: #EEF2FF;
-  --count-color: #4F46E5;
-}
-
 .logger {
-  color: var(--text-secondary);
+  color: var(--gray-300);
   width: 100%;
   max-width: 100%;
   display: block;
-  background: var(--panel-bg);
-  border-radius: 10px;
-  box-shadow: var(--shadow);
-  font-family: 'Inter', system-ui, sans-serif;
 
   .logger-list {
     padding: 0 0px 0 25px;
     overflow-x: hidden;
     width: calc(100% - 45px);
-    
-    /* Stylish scrollbar */
-    &::-webkit-scrollbar {
-      width: 6px;
-    }
-    &::-webkit-scrollbar-track {
-      background: var(--panel-bg);
-    }
-    &::-webkit-scrollbar-thumb {
-      background: rgba(0, 0, 0, 0.1);
-      border-radius: 10px;
-    }
   }
 
   .user h4 {
-    color: var(--accent-green);
-    font-weight: 600;
+    color: var(--Green-500);
   }
 
   .model h4 {
-    color: var(--accent-blue);
-    font-weight: 600;
+    color: var(--Blue-500);
   }
 
   .rich-log {
     display: flex;
     justify-content: center;
-    gap: 10px;
-    margin-bottom: 15px;
+    gap: 4px;
 
     pre {
       overflow-x: auto;
-      background: var(--code-bg);
-      border-radius: 6px;
-      padding: 12px;
-      font-family: 'JetBrains Mono', 'Space Mono', monospace;
-      font-size: 13px;
-      border: 1px solid var(--border-color);
-      color: var(--text-primary);
-      
-      /* Scrollbar for code blocks */
-      &::-webkit-scrollbar {
-        height: 4px;
-      }
-      &::-webkit-scrollbar-track {
-        background: var(--code-bg);
-      }
-      &::-webkit-scrollbar-thumb {
-        background: rgba(0, 0, 0, 0.15);
-        border-radius: 4px;
-      }
     }
 
     display: block;
@@ -90,215 +34,83 @@
       text-transform: uppercase;
       padding: 8px 0;
       margin: 0;
-      letter-spacing: 0.5px;
     }
 
     h5 {
       margin: 0;
-      padding-bottom: 12px;
-      border-bottom: 1px solid var(--border-color);
-      color: var(--text-primary);
-      font-weight: 600;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--Neutral-20);
     }
 
     .part {
-      background: var(--highlight-bg);
-      padding: 16px;
-      margin-bottom: 8px;
-      color: var(--text-primary);
+      background: var(--Neutral-5);
+      padding: 14px;
+      margin-bottom: 4px;
+      color: var(--Neutral-90);
       border-radius: 8px;
-      border: 1px solid var(--border-color);
-      transition: all 0.2s ease;
-      
-      &:hover {
-        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
-        transform: translateY(-2px);
-      }
     }
   }
 
   .plain-log {
     &>* {
-      padding-right: 8px;
+      padding-right: 4px;
     }
   }
 
   .inline-code:not(:last-child) {
     font-style: italic;
-    color: var(--accent-purple);
-    background: var(--code-bg);
-    padding: 2px 5px;
-    border-radius: 4px;
-    font-family: 'JetBrains Mono', 'Space Mono', monospace;
-    font-size: 13px;
 
     &::after {
       content: ", ";
-      color: var(--text-secondary);
-      font-style: normal;
-      background: transparent;
     }
   }
 }
 
 .logger li {
-  display: flex;
-  align-items: center;
-  padding: 10px 0;
-  color: var(--text-secondary);
-  font-family: 'JetBrains Mono', 'Space Mono', monospace;
-  font-size: 13px;
+  display: block;
+  padding: 8px 0;
+  color: var(--Neutral-50, #707577);
+  font-family: "Space Mono";
+  font-size: 14px;
   font-style: normal;
   font-weight: 400;
-  line-height: 1.5;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.04);
-  transition: background-color 0.2s ease;
-  
-  &:hover {
-    background-color: rgba(0, 0, 0, 0.01);
-  }
-  
-  &:last-child {
-    border-bottom: none;
-  }
+  line-height: normal;
 }
 
 .logger li .timestamp {
   width: 70px;
   flex-grow: 0;
   flex-shrink: 0;
-  color: var(--timestamp-color);
-  font-size: 12px;
-  padding-right: 10px;
+  color: var(--Neutral-50);
 }
 
 .logger li .source {
   flex-shrink: 0;
-  font-weight: 600;
-  padding: 0 10px;
-  border-radius: 4px;
+  font-weight: bold;
 }
 
 .logger li.source-server,
 .logger li.receive {
-  color: var(--accent-blue);
-  
-  .source {
-    background-color: rgba(33, 150, 243, 0.08);
-  }
+  color: var(--Blue-500);
 }
 
 .logger li.source-client,
 .logger li.send:not(.source-server) {
-  color: var(--accent-green);
-  
-  .source {
-    background-color: rgba(76, 175, 80, 0.08);
-  }
+  color: var(--Green-500);
 }
 
 .logger li .count {
-  background-color: var(--count-bg);
-  font-size: 11px;
-  padding: 0.3em 0.6em;
+  background-color: var(--Neutral-5);
+  font-size: x-small;
+  padding: 0em 0.6em;
+  padding: 0.3em 0.5em;
   line-height: 1em;
   vertical-align: middle;
-  border-radius: 12px;
-  color: var(--count-color);
-  font-weight: 600;
-  margin: 0 8px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  border-radius: 8px;
+  color: var(--Blue-500);
 }
 
 .logger li .message {
   flex-grow: 1;
-  color: var(--text-primary);
-  padding-left: 10px;
-  
-  /* Add ellipsis for long messages */
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  
-  /* But expand on hover */
-  &:hover {
-    white-space: normal;
-    overflow: visible;
-  }
-}
-
-/* Add alternating row styling for better readability */
-.logger li:nth-child(even) {
-  background-color: rgba(0, 0, 0, 0.01);
-}
-
-/* Add nice animation for new log entries */
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(5px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.logger li {
-  animation: fadeIn 0.3s ease forwards;
-}
-
-/* Add tooltip styling for additional information */
-[data-tooltip] {
-  position: relative;
-  cursor: help;
-}
-
-[data-tooltip]:hover::after {
-  content: attr(data-tooltip);
-  position: absolute;
-  bottom: 100%;
-  left: 50%;
-  transform: translateX(-50%);
-  background: #333;
-  color: white;
-  padding: 5px 10px;
-  border-radius: 4px;
-  font-size: 12px;
-  white-space: nowrap;
-  z-index: 100;
-  pointer-events: none;
-}
-
-/* Create nice info badges for different log types */
-.logger li .type-badge {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 4px;
-  margin-right: 8px;
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-}
-
-.logger li .type-info {
-  background-color: rgba(33, 150, 243, 0.1);
-  color: var(--accent-blue);
-}
-
-.logger li .type-warning {
-  background-color: rgba(255, 152, 0, 0.1);
-  color: #FF9800;
-}
-
-.logger li .type-error {
-  background-color: rgba(244, 67, 54, 0.1);
-  color: #F44336;
-}
-
-.logger li .type-success {
-  background-color: rgba(76, 175, 80, 0.1);
-  color: var(--accent-green);
-}
-
-/* When in light mode, ensure good contrast */
-@media (prefers-color-scheme: light) {
-  .logger {
-    --text-primary: #333333;
-    --text-secondary: #666666;
-  }
+  color: var(--Neutral-50);
 }

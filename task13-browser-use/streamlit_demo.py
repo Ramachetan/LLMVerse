@@ -73,7 +73,7 @@ def initialize_agent(forecast_url: str):
         | Overall PCE (MoM)    | [Latest Period] | [Actual %] | [Forecast %] | [Difference %] |
         | Core PCE (MoM)       | [Latest Period] | [Actual %] | [Forecast %] | [Difference %] |
 
-        - **After the table**, provide a detailed textual summary analyzing the results. Compare the actual figures to the forecasts. For example, state whether inflation was higher, lower, or in line with expectations based on the data presented in the table.
+        - **After the table**, provide a very detailed textual summary analyzing the results. Compare the actual figures to the forecasts. For example, state whether inflation was higher, lower, or in line with expectations based on the data presented in the table.
 
         **Important Rules:**
         - Prioritize Month-over-Month (MoM) data.
@@ -108,9 +108,9 @@ and compare it against economist forecasts from a selected source.
 """)
 
 # --- Create a two-column layout for the main content ---
-col1, col2 = st.columns([1, 1])  # Equal width columns
+# col1, col2 = st.columns([1, 1])  # Equal width columns
 
-with col1:
+with st.sidebar:
     # --- User Friendliness: Explanation ---
     st.info("ℹ️ **How it works:** The AI agent will open a browser (you might see it pop up if not running headless), navigate the websites, analyze the content, and extract the required data. This process can take **1-3 minutes** depending on website speed and complexity.")
 
@@ -269,12 +269,12 @@ with col1:
                 st.error(traceback.format_exc())
 
 # Display the results in the second column if they exist
-with col2:
-    st.subheader("Results")
-    if st.session_state.get('last_result'):
-        st.markdown(st.session_state.last_result)
-    else:
-        st.info("Run the comparison to see results here.")
+# with col2:
+st.subheader("Results")
+if st.session_state.get('last_result'):
+    st.markdown(st.session_state.last_result)
+else:
+    st.info("Run the comparison to see results here.")
 
 # --- Explanatory Section (Unchanged) ---
 st.markdown("---")

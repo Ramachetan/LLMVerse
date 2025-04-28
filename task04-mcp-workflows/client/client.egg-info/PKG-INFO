@@ -1,0 +1,84 @@
+Metadata-Version: 2.4
+Name: client
+Version: 0.1.0
+Summary: Add your description here
+Requires-Python: >=3.13
+Description-Content-Type: text/markdown
+Requires-Dist: chainlit>=2.4.400
+Requires-Dist: mcp[cli]>=1.6.0
+Requires-Dist: openai>=1.69.0
+Requires-Dist: python-dotenv>=1.1.0
+
+# MCP Workflows Client
+
+This project demonstrates the integration of Large Language Models with the Model Context Protocol (MCP) to enable tool calling capabilities in a chat interface.
+
+## Prerequisites
+
+- Python 3.8+
+- Node.js (for running the test MCP server)
+
+## Setup Instructions
+
+### 1. Get Google Generative AI API Key
+
+1. Visit [Google AI Studio](https://aistudio.google.com/app/apikey)
+2. Create a new API key
+3. Create a `.env` file in the project root directory and add your API key:
+
+```
+API_KEY=your_api_key_here
+```
+
+### 2. Install Dependencies
+
+Use `uv` to install dependencies:
+
+```bash
+uv sync
+```
+
+If you don't have `uv` installed, you can install it with:
+
+#### Go to the link below and follow the instructions:
+
+https://docs.astral.sh/uv/
+
+### 3. Run the Application
+
+Start the Chainlit server:
+
+```bash
+chainlit run main.py
+```
+
+This will launch a web interface at http://localhost:8000
+
+## Connecting to an MCP Server
+
+1. Once the UI is running, click on the plug symbol in the interface
+2. To add a test MCP server, open a new terminal and run:
+
+```bash
+npx -y @modelcontextprotocol/server-everything
+```
+
+NOTE: This server is a test server and it is used for demonstration purposes only.
+
+3. Connect to the server in the Chainlit UI
+
+## Testing Tool Calling
+
+After connecting to the MCP server, you can test tool calling functionality by asking questions that require computational tools.
+
+Example: 
+- Ask "What is 214 + 124?" and the model should use the `add` tool to calculate the answer.
+- Try other mathematical operations or tools provided by the MCP server.
+
+## How It Works
+
+This application:
+1. Uses the Google Generative AI model (gemini-2.0-flash)
+2. Integrates with MCP to expose tools to the LLM
+3. Handles tool calling and response processing through Chainlit
+4. Provides a conversational interface for interacting with the tools

@@ -4,13 +4,12 @@ import json
 import os
 import logging
 from dotenv import load_dotenv
-
 from fastapi import FastAPI, Request, Response, WebSocket, WebSocketDisconnect
 from fastapi.responses import PlainTextResponse
-from twilio.twiml.voice_response import VoiceResponse, Connect, Stream
+from twilio.twiml.voice_response import VoiceResponse, Connect
 from google import genai
 from google.genai import types
-import audioop # Built-in library for basic audio conversions
+from utils import reset_resample_states, mulaw8k_to_pcm16k, pcm24k_to_mulaw8k
 
 # --- Configuration & Setup ---
 load_dotenv() # Load environment variables from .env file
@@ -36,7 +35,7 @@ logger.info(f"Twilio WebSocket URL: {TWILIO_WEBSOCKET_URL}")
 logger.debug(f"WebSocket URL for Twilio: {TWILIO_WEBSOCKET_URL}")
 # Gemini Configuration
 GEMINI_MODEL_NAME = "gemini-2.0-flash-live-001"
-GEMINI_VOICE_NAME = "Puck" # Example voice, check Gemini docs for options
+GEMINI_VOICE_NAME = "Puck"
 GEMINI_SYSTEM_PROMPT = "You are a helpful and friendly voice assistant. Keep your responses concise."
 
 # Audio Format Specifics
@@ -53,76 +52,9 @@ except Exception as e:
     logger.error(f"Failed to initialize Google GenAI Client: {e}")
     raise
 
-# --- Audio Conversion Helpers ---
-# WARNING: These resampling functions are VERY basic and will degrade audio quality.
-# They do NOT perform proper anti-aliasing or interpolation.
-# For better quality, consider using libraries like 'resampy' or 'numpy/scipy.signal'.
-
 # State variable for audioop resampling
 resample_state_8k_to_16k = None
 resample_state_24k_to_8k = None
-
-def reset_resample_states():
-    global resample_state_8k_to_16k, resample_state_24k_to_8k
-    resample_state_8k_to_16k = None
-    resample_state_24k_to_8k = None
-    logger.debug("Audio resampling states reset.")
-
-def mulaw8k_to_pcm16k(mulaw_data: bytes) -> bytes:
-    """Convert 8-bit mulaw@8kHz to 16-bit PCM@16kHz (basic resampling)"""
-    global resample_state_8k_to_16k
-    try:
-        # 1. Convert 8-bit mulaw to 16-bit linear PCM (still @ 8kHz)
-        pcm_8k_data = audioop.ulaw2lin(mulaw_data, 2) # 2 bytes per sample output
-
-        # 2. Resample 8kHz to 16kHz using audioop.ratecv (basic quality)
-        # Parameters: (fragment, sampwidth, nchannels, inrate, outrate, state)
-        pcm_16k_data, resample_state_8k_to_16k = audioop.ratecv(
-            pcm_8k_data, 2, 1, TWILIO_SAMPLE_RATE, GEMINI_INPUT_SAMPLE_RATE, resample_state_8k_to_16k
-        )
-        return pcm_16k_data
-    except audioop.error as e:
-        logger.error(f"Audioop error during mulaw->pcm16k conversion: {e}")
-        return b"" # Return empty bytes on error
-
-
-def pcm24k_to_mulaw8k(pcm_data: bytes) -> bytes:
-    """Convert 16-bit PCM@24kHz to 8-bit mulaw@8kHz (basic resampling)"""
-    global resample_state_24k_to_8k
-    
-    if not pcm_data:
-        logger.warning("Received empty PCM data for conversion")
-        return b""
-        
-    try:
-        logger.debug(f"Converting {len(pcm_data)} bytes of PCM data")
-        
-        # Check if the input data is actually 16-bit (2 bytes per sample)
-        if len(pcm_data) % 2 != 0:
-            logger.error(f"PCM data length ({len(pcm_data)}) is not divisible by 2. Padding with zero.")
-            pcm_data += b'\x00'  # Pad with a zero byte
-            
-        # 1. Resample 24kHz to 8kHz using audioop.ratecv (basic quality)
-        pcm_8k_data, resample_state_24k_to_8k = audioop.ratecv(
-            pcm_data, 2, 1, GEMINI_OUTPUT_SAMPLE_RATE, TWILIO_SAMPLE_RATE, resample_state_24k_to_8k
-        )
-        logger.debug(f"Resampled to {len(pcm_8k_data)} bytes")
-        
-        # 2. Convert 16-bit linear PCM to 8-bit mulaw
-        mulaw_data = audioop.lin2ulaw(pcm_8k_data, 2)
-        logger.debug(f"Converted to {len(mulaw_data)} bytes of μ-law")
-        
-        return mulaw_data
-    except audioop.error as e:
-        logger.error(f"Audioop error during pcm24k->mulaw8k conversion: {e}")
-        # Dump first few bytes for debugging
-        if pcm_data:
-            logger.error(f"First 20 bytes of problematic PCM data: {pcm_data[:20].hex()}")
-        return b""  # Return empty bytes on error
-    except Exception as e:
-        logger.error(f"Unexpected error in pcm24k->mulaw8k: {type(e).__name__} - {e}", exc_info=True)
-        return b""
-
 
 # --- FastAPI Application ---
 app = FastAPI()
@@ -132,24 +64,11 @@ async def incoming_call(request: Request):
     """Handles incoming Twilio call and connects it to the WebSocket stream."""
     logger.info(f"Incoming call from: {request.client.host}") # Log caller IP or identifier if available
     response = VoiceResponse()
-
-    # Optional: Greet the caller briefly before connecting
     response.say("Hello! Please wait while I connect you to our AI assistant.", voice='Polly.Joanna-Neural') # Example voice
-
-    # Connect to the WebSocket stream
     connect = Connect()
     connect.stream(url=TWILIO_WEBSOCKET_URL)
     response.append(connect)
-
-    # Optional: Add a pause to keep the call alive if the stream takes time to connect
-    # response.pause(length=1) # Pause for 1 second
-
-    # Add a longer pause after connect. This keeps the TwiML active
-    # while the WebSocket handles the conversation. Adjust length as needed.
-    # Max duration seems to be around 4 hours for Twilio calls.
     response.pause(length=3600) # Keep call parked for 1 hour
-
-    # Log the TwiML being sent back
     twiml_response = str(response)
     logger.debug(f"Responding to /incoming_call with TwiML: {twiml_response}")
 
@@ -231,7 +150,6 @@ async def audio_stream_websocket(websocket: WebSocket):
         logger.info("Twilio stream started. Connecting to Gemini Live API...")
 
         try:
-    # Configure Gemini Session using types objects (like the example)
             config = types.LiveConnectConfig( # Use types.
                 response_modalities=["AUDIO"],
                 speech_config=types.SpeechConfig( # Use types.
@@ -249,19 +167,12 @@ async def audio_stream_websocket(websocket: WebSocket):
             async with client.aio.live.connect(model=GEMINI_MODEL_NAME, config=config) as session:
                 gemini_session = session
                 logger.info("Connected to Gemini Live API.")
-
-                # Start the task that listens to Gemini and queues audio for Twilio
                 gemini_receiver_task = asyncio.create_task(gemini_audio_receiver(session))
 
                 while True:
                     mulaw_chunk = await audio_queue.get()
                     if mulaw_chunk is None:
                         logger.info("End of Twilio audio stream signaled.")
-                        # Optionally signal end to Gemini - check API docs if needed
-                        # try:
-                        #     await session.send_realtime_input(audio_stream_end=True)
-                        # except Exception as e:
-                        #     logger.warning(f"Could not send audio_stream_end to Gemini: {e}")
                         break # Exit loop when Twilio audio ends
 
                     # 1. Convert mulaw 8kHz to PCM 16kHz

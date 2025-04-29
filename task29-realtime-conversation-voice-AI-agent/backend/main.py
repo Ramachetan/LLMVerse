@@ -36,7 +36,9 @@ logger.debug(f"WebSocket URL for Twilio: {TWILIO_WEBSOCKET_URL}")
 # Gemini Configuration
 GEMINI_MODEL_NAME = "gemini-2.0-flash-live-001"
 GEMINI_VOICE_NAME = "Puck"
-GEMINI_SYSTEM_PROMPT = "You are a helpful and friendly voice assistant. Keep your responses concise."
+
+with open("system.md", "r") as f:
+    GEMINI_SYSTEM_PROMPT = f.read().strip()
 
 # Audio Format Specifics
 TWILIO_SAMPLE_RATE = 8000
@@ -215,7 +217,7 @@ async def audio_stream_websocket(websocket: WebSocket):
                 complete_flag = False
                 
                 async for response in session.receive():
-                    logger.info(f"Received response from Gemini: {type(response)}")
+                    logger.info(f"Received response from Gemini: {response}")
                     
                     # Check for audio data
                     if response.server_content and response.server_content.model_turn:

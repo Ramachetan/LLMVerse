@@ -217,7 +217,7 @@ async def audio_stream_websocket(websocket: WebSocket):
                 complete_flag = False
                 
                 async for response in session.receive():
-                    logger.info(f"Received response from Gemini: {response}")
+                    # logger.info(f"Received response from Gemini: {response}")
                     
                     # Check for audio data
                     if response.server_content and response.server_content.model_turn:

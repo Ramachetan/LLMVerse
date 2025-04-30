@@ -9,7 +9,8 @@ from fastapi.responses import PlainTextResponse
 from twilio.twiml.voice_response import VoiceResponse, Connect
 from google import genai
 from google.genai import types
-from utils import reset_resample_states, mulaw8k_to_pcm16k, pcm24k_to_mulaw8k
+from utils import mulaw8k_to_pcm16k, pcm24k_to_mulaw8k
+from function_calling_utils import getMenu  # Import your function here
 
 # --- Configuration & Setup ---
 load_dotenv() # Load environment variables from .env file
@@ -39,6 +40,74 @@ GEMINI_VOICE_NAME = "Puck"
 
 with open("system.md", "r") as f:
     GEMINI_SYSTEM_PROMPT = f.read().strip()
+
+tools = [
+    types.Tool(
+        function_declarations=[
+            types.FunctionDeclaration(
+                name="getMenu",
+                description="gets the menu for the restaurant",
+                parameters=genai.types.Schema(
+                    type = genai.types.Type.OBJECT,
+                    properties = {
+                        "cuisine": genai.types.Schema(
+                            type = genai.types.Type.STRING,
+                        ),
+                        "dietary_restrictions": genai.types.Schema(
+                            type = genai.types.Type.STRING,
+                            enum = [
+                                "vegetarian",
+                                "vegan",
+                                "gluten-free",
+                                "nut-free",
+                                "dairy-free",
+                                "halal",
+                                "no restrictions"
+                            ],
+                        ),
+                    },
+                ),
+            ),
+        ],
+    ),
+    types.Tool(
+        function_declarations=[
+            types.FunctionDeclaration(
+                name="getSpecialOffers",
+                description="retrieves current special offers for the restaurant",
+                parameters=genai.types.Schema(
+                    type=genai.types.Type.OBJECT,
+                    properties={},
+                ),
+            ),
+        ],
+    ),
+    types.Tool(
+        function_declarations=[
+            types.FunctionDeclaration(
+                name="reserveTable",
+                description="reserves a table at the restaurant",
+                parameters=genai.types.Schema(
+                    type=genai.types.Type.OBJECT,
+                    properties={
+                        "date": genai.types.Schema(
+                            type=genai.types.Type.STRING,
+                            description="Date for the reservation in YYYY-MM-DD format",
+                        ),
+                        "time": genai.types.Schema(
+                            type=genai.types.Type.STRING,
+                            description="Time for the reservation in HH:MM format",
+                        ),
+                        "party_size": genai.types.Schema(
+                            type=genai.types.Type.INTEGER,
+                            description="Number of people for the reservation",
+                        ),
+                    },
+                ),
+            ),
+        ],
+    ),
+]
 
 # Audio Format Specifics
 TWILIO_SAMPLE_RATE = 8000
@@ -89,7 +158,7 @@ async def audio_stream_websocket(websocket: WebSocket):
     twilio_send_queue = asyncio.Queue() # Queue for Gemini -> Twilio audio chunks
     stream_active = asyncio.Event() # Flag to signal when Twilio stream has started
 
-    reset_resample_states() # Reset audio conversion state for this new call
+    # reset_resample_states() # Reset audio conversion state for this new call
 
     async def twilio_receiver():
         """Receives messages from Twilio WebSocket."""
@@ -105,10 +174,17 @@ async def audio_stream_websocket(websocket: WebSocket):
                 if event == "connected":
                     logger.info("Twilio 'connected' event received.")
                 elif event == "start":
-                    stream_sid = data.get("streamSid")
+                    # Correctly extract the nested streamSid (Standard Twilio Format)
+                    start_data = data.get("start", {}) # Get the nested "start" object, default to {} if missing
+                    stream_sid = start_data.get("streamSid") # Get streamSid from the nested object
                     logger.info(f"Twilio 'start' event received. SID: {stream_sid}")
-                    # Signal that we can now start the Gemini session
-                    stream_active.set()
+                    if stream_sid:
+                        # Signal that we can now start the Gemini session
+                        stream_active.set()
+                    else:
+                        logger.error("Stream SID not found in 'start' event payload.")
+                        # Decide how to handle this - maybe close the connection?
+                        # For now, just log and don't set stream_active
                 elif event == "media":
                     if not stream_sid:
                         logger.warning("Received 'media' event before 'start'. Ignoring.")
@@ -158,11 +234,12 @@ async def audio_stream_websocket(websocket: WebSocket):
                     voice_config=types.VoiceConfig( # Use types.
                     prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name=GEMINI_VOICE_NAME) # Use types.
                     ),
-                    # language_code="en-US" # Optional
+                    # language_code="te-IN", # Optional
                 ),
                 system_instruction=types.Content( # Use types.
                     parts=[types.Part(text=GEMINI_SYSTEM_PROMPT)] # Use types.
-                )
+                ),
+                tools=tools, # Use types.
             )
 
             # Connect using the config object
@@ -210,62 +287,113 @@ async def audio_stream_websocket(websocket: WebSocket):
 
 
     async def gemini_audio_receiver(session):
-        """Receives audio from Gemini and queues it for sending back to Twilio."""
+        """Receives audio and potentially function calls from Gemini and queues audio for sending back to Twilio."""
         logger.info("Gemini receiver task started.")
         try:
             while True:
                 complete_flag = False
-                
+                function_call_in_progress = False # Flag to track if we are waiting for function results
+
                 async for response in session.receive():
                     # logger.info(f"Received response from Gemini: {response}")
-                    
-                    # Check for audio data
-                    if response.server_content and response.server_content.model_turn:
+
+                    # --- Handle Function Calls ---
+                    if response.tool_call:
+                        logger.info(f"Received tool call from Gemini: {response.tool_call}")
+                        function_call_in_progress = True # Mark that we are processing a function call
+                        function_responses = []
+                        for fc in response.tool_call.function_calls:
+                            logger.info(f"Processing function call: {fc.name} with args: {fc.args}")
+                            if fc.name == "getMenu":
+                                try:
+                                    # Extract arguments safely
+                                    cuisine = fc.args.get("cuisine")
+                                    dietary_restrictions = fc.args.get("dietary_restrictions", "no restrictions") # Default if not provided
+
+                                    # Call the actual function
+                                    menu_result = getMenu(cuisine=cuisine, dietary_restrictions=dietary_restrictions)
+                                    logger.info(f"Function 'getMenu' returned: {menu_result}")
+
+                                    # Prepare the response for Gemini
+                                    function_response = types.FunctionResponse(
+                                        id=fc.id,
+                                        name=fc.name,
+                                        response={"result": menu_result} # Send the actual result back
+                                    )
+                                    function_responses.append(function_response)
+                                except Exception as func_e:
+                                    logger.error(f"Error executing function {fc.name}: {func_e}", exc_info=True)
+                                    # Optionally send an error response back to Gemini
+                                    function_response = types.FunctionResponse(
+                                        id=fc.id,
+                                        name=fc.name,
+                                        response={"error": f"Failed to execute function: {str(func_e)}"}
+                                    )
+                                    function_responses.append(function_response)
+                            else:
+                                logger.warning(f"Received unknown function call: {fc.name}")
+                                # Handle unknown functions if necessary, maybe send an error response
+                                function_response = types.FunctionResponse(
+                                    id=fc.id,
+                                    name=fc.name,
+                                    response={"error": f"Function '{fc.name}' is not implemented."}
+                                )
+                                function_responses.append(function_response)
+
+                        # Send the collected responses back to Gemini
+                        if function_responses:
+                            logger.info(f"Sending {len(function_responses)} function responses to Gemini.")
+                            await session.send_tool_response(function_responses=function_responses)
+                        # After sending tool response, continue the loop to get Gemini's next response (likely audio/text based on the function result)
+
+                    # --- Handle Server Content (Audio/Text) ---
+                    elif response.server_content and response.server_content.model_turn:
                         part = response.server_content.model_turn.parts[0]
-                        
+
                         if part.inline_data and part.inline_data.mime_type.startswith("audio/"):
                             pcm24k_chunk = part.inline_data.data
-                            logger.info(f"Received audio chunk from Gemini: {len(pcm24k_chunk)} bytes")
-                            
+                            # logger.debug(f"Received audio chunk from Gemini: {len(pcm24k_chunk)} bytes") # Debug level
+
                             # Convert Gemini's PCM 24kHz to Twilio's mulaw 8kHz
                             mulaw8k_chunk = pcm24k_to_mulaw8k(pcm24k_chunk)
-                            
+
                             if mulaw8k_chunk:
-                                logger.info(f"Converted audio to mulaw: {len(mulaw8k_chunk)} bytes")
+                                # logger.debug(f"Converted audio to mulaw: {len(mulaw8k_chunk)} bytes") # Debug level
                                 await twilio_send_queue.put(mulaw8k_chunk)
                             else:
-                                logger.warning("Audio conversion failed - empty chunk after conversion")
+                                logger.warning("Audio conversion resulted in empty chunk.")
                         elif part.text:
                             logger.info(f"Gemini Text Response: {part.text}")
-                        else:
-                            logger.warning(f"Received part with no audio or text: {part}")
+                            # Note: Currently not sending text back via audio, only logging.
+                            # You might want to synthesize this text to speech if needed.
+                        # else: # Log only if unexpected empty part
+                        #     logger.warning(f"Received part with no audio or text: {part}")
 
-                    # Handle other potentially useful events
+                    # --- Handle Other Events ---
                     if response.server_content and response.server_content.interrupted:
                         logger.warning("Gemini generation interrupted.")
                     if response.server_content and response.server_content.generation_complete:
                         logger.info("Gemini generation complete event received.")
                         complete_flag = True
-                        # Send an empty chunk as an end-of-turn marker
-                        await twilio_send_queue.put(b"")
-                        
+                        if not function_call_in_progress: # Only send end-of-turn marker if not waiting for function result processing
+                             await twilio_send_queue.put(b"") # Send empty chunk as end-of-turn marker
+                        function_call_in_progress = False # Reset flag after completion
+
                     if response.go_away:
                         logger.warning(f"Gemini GoAway received: TimeLeft={response.go_away.time_left}. Connection will close.")
                         return  # Exit the entire function
-                        
+
                     if response.usage_metadata:
                         logger.info(f"Gemini Usage: {response.usage_metadata.total_token_count} total tokens")
-                
+
+                # --- Loop Exit Logic ---
                 if complete_flag:
-                    # If we got a complete flag, the inner loop is done but we want to restart
-                    logger.info("Response turn complete. Waiting for next user input...")
-                    # Wait for a short time to avoid spinning too fast if something's wrong
-                    await asyncio.sleep(0.1)
-                    # Don't break - let the outer loop continue
+                    logger.info("Response turn complete. Waiting for next user input or function result...")
+                    await asyncio.sleep(0.1) # Small sleep
+                    # Continue the outer loop
                 else:
-                    # If we exit the inner loop without a complete flag, something went wrong
-                    logger.warning("Exited Gemini receive loop without completion flag. Breaking.")
-                    break
+                    logger.warning("Exited Gemini receive loop unexpectedly (without completion flag or go_away). Breaking.")
+                    break # Exit outer loop if inner loop finishes without completion
 
         except asyncio.CancelledError:
             logger.info("Gemini receiver task cancelled.")
@@ -377,7 +505,7 @@ async def audio_stream_websocket(websocket: WebSocket):
             logger.warning(f"Error closing WebSocket (may already be closed): {e}")
 
     logger.info(f"WebSocket handler finished for connection from: {websocket.client.host}")
-    reset_resample_states() # Clean up audio state
+    # reset_resample_states() # Clean up audio state
 
 
 # --- Main Execution ---

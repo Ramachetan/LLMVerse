@@ -9,8 +9,10 @@ from fastapi.responses import PlainTextResponse
 from twilio.twiml.voice_response import VoiceResponse, Connect
 from google import genai
 from google.genai import types
-from utils import mulaw8k_to_pcm16k, pcm24k_to_mulaw8k
-from function_calling_utils import getMenu  # Import your function here
+from fastapi.middleware.cors import CORSMiddleware
+from utils.utils import mulaw8k_to_pcm16k, pcm24k_to_mulaw8k
+from utils.tool_executor import ToolExecutor  # Import our new ToolExecutor
+from utils.tools_router import router as tools_router  # Import our new router
 
 # --- Configuration & Setup ---
 load_dotenv() # Load environment variables from .env file
@@ -41,73 +43,8 @@ GEMINI_VOICE_NAME = "Puck"
 with open("system.md", "r") as f:
     GEMINI_SYSTEM_PROMPT = f.read().strip()
 
-tools = [
-    types.Tool(
-        function_declarations=[
-            types.FunctionDeclaration(
-                name="getMenu",
-                description="gets the menu for the restaurant",
-                parameters=genai.types.Schema(
-                    type = genai.types.Type.OBJECT,
-                    properties = {
-                        "cuisine": genai.types.Schema(
-                            type = genai.types.Type.STRING,
-                        ),
-                        "dietary_restrictions": genai.types.Schema(
-                            type = genai.types.Type.STRING,
-                            enum = [
-                                "vegetarian",
-                                "vegan",
-                                "gluten-free",
-                                "nut-free",
-                                "dairy-free",
-                                "halal",
-                                "no restrictions"
-                            ],
-                        ),
-                    },
-                ),
-            ),
-        ],
-    ),
-    types.Tool(
-        function_declarations=[
-            types.FunctionDeclaration(
-                name="getSpecialOffers",
-                description="retrieves current special offers for the restaurant",
-                parameters=genai.types.Schema(
-                    type=genai.types.Type.OBJECT,
-                    properties={},
-                ),
-            ),
-        ],
-    ),
-    types.Tool(
-        function_declarations=[
-            types.FunctionDeclaration(
-                name="reserveTable",
-                description="reserves a table at the restaurant",
-                parameters=genai.types.Schema(
-                    type=genai.types.Type.OBJECT,
-                    properties={
-                        "date": genai.types.Schema(
-                            type=genai.types.Type.STRING,
-                            description="Date for the reservation in YYYY-MM-DD format",
-                        ),
-                        "time": genai.types.Schema(
-                            type=genai.types.Type.STRING,
-                            description="Time for the reservation in HH:MM format",
-                        ),
-                        "party_size": genai.types.Schema(
-                            type=genai.types.Type.INTEGER,
-                            description="Number of people for the reservation",
-                        ),
-                    },
-                ),
-            ),
-        ],
-    ),
-]
+# Initialize the Tool Executor
+tool_executor = ToolExecutor()
 
 # Audio Format Specifics
 TWILIO_SAMPLE_RATE = 8000
@@ -129,6 +66,18 @@ resample_state_24k_to_8k = None
 
 # --- FastAPI Application ---
 app = FastAPI()
+
+# CORS Middleware Configuration (optional, adjust as needed)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Register the tools router
+app.include_router(tools_router)
 
 @app.post("/incoming_call", response_class=PlainTextResponse)
 async def incoming_call(request: Request):
@@ -228,18 +177,21 @@ async def audio_stream_websocket(websocket: WebSocket):
         logger.info("Twilio stream started. Connecting to Gemini Live API...")
 
         try:
-            config = types.LiveConnectConfig( # Use types.
+            # Get tools from the ToolExecutor
+            tools = tool_executor.get_tools_for_gemini()
+            
+            config = types.LiveConnectConfig(
                 response_modalities=["AUDIO"],
-                speech_config=types.SpeechConfig( # Use types.
-                    voice_config=types.VoiceConfig( # Use types.
-                    prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name=GEMINI_VOICE_NAME) # Use types.
+                speech_config=types.SpeechConfig(
+                    voice_config=types.VoiceConfig(
+                    prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name=GEMINI_VOICE_NAME)
                     ),
                     # language_code="te-IN", # Optional
                 ),
-                system_instruction=types.Content( # Use types.
-                    parts=[types.Part(text=GEMINI_SYSTEM_PROMPT)] # Use types.
+                system_instruction=types.Content(
+                    parts=[types.Part(text=GEMINI_SYSTEM_PROMPT)]
                 ),
-                tools=tools, # Use types.
+                tools=tools,  # Use dynamically loaded tools
             )
 
             # Connect using the config object
@@ -263,7 +215,7 @@ async def audio_stream_websocket(websocket: WebSocket):
                         try:
                              # Send audio optimized for responsiveness
                              await session.send_realtime_input(
-                                audio=types.Blob(data=pcm16k_chunk, mime_type=f"{GEMINI_AUDIO_FORMAT};rate={GEMINI_INPUT_SAMPLE_RATE}") # Use types.
+                                audio=types.Blob(data=pcm16k_chunk, mime_type=f"{GEMINI_AUDIO_FORMAT};rate={GEMINI_INPUT_SAMPLE_RATE}")
                             )
                         except Exception as gemini_send_e:
                             logger.error(f"Error sending audio to Gemini: {gemini_send_e}", exc_info=True)
@@ -304,39 +256,26 @@ async def audio_stream_websocket(websocket: WebSocket):
                         function_responses = []
                         for fc in response.tool_call.function_calls:
                             logger.info(f"Processing function call: {fc.name} with args: {fc.args}")
-                            if fc.name == "getMenu":
-                                try:
-                                    # Extract arguments safely
-                                    cuisine = fc.args.get("cuisine")
-                                    dietary_restrictions = fc.args.get("dietary_restrictions", "no restrictions") # Default if not provided
+                            
+                            try:
+                                # Use our ToolExecutor to execute the function
+                                result = tool_executor.execute_tool(fc.name, fc.args)
+                                logger.info(f"Function '{fc.name}' returned: {result}")
 
-                                    # Call the actual function
-                                    menu_result = getMenu(cuisine=cuisine, dietary_restrictions=dietary_restrictions)
-                                    logger.info(f"Function 'getMenu' returned: {menu_result}")
-
-                                    # Prepare the response for Gemini
-                                    function_response = types.FunctionResponse(
-                                        id=fc.id,
-                                        name=fc.name,
-                                        response={"result": menu_result} # Send the actual result back
-                                    )
-                                    function_responses.append(function_response)
-                                except Exception as func_e:
-                                    logger.error(f"Error executing function {fc.name}: {func_e}", exc_info=True)
-                                    # Optionally send an error response back to Gemini
-                                    function_response = types.FunctionResponse(
-                                        id=fc.id,
-                                        name=fc.name,
-                                        response={"error": f"Failed to execute function: {str(func_e)}"}
-                                    )
-                                    function_responses.append(function_response)
-                            else:
-                                logger.warning(f"Received unknown function call: {fc.name}")
-                                # Handle unknown functions if necessary, maybe send an error response
+                                # Prepare the response for Gemini
                                 function_response = types.FunctionResponse(
                                     id=fc.id,
                                     name=fc.name,
-                                    response={"error": f"Function '{fc.name}' is not implemented."}
+                                    response={"result": result} # Send the actual result back
+                                )
+                                function_responses.append(function_response)
+                            except Exception as func_e:
+                                logger.error(f"Error executing function {fc.name}: {func_e}", exc_info=True)
+                                # Send an error response back to Gemini
+                                function_response = types.FunctionResponse(
+                                    id=fc.id,
+                                    name=fc.name,
+                                    response={"error": f"Failed to execute function: {str(func_e)}"}
                                 )
                                 function_responses.append(function_response)
 
@@ -344,7 +283,7 @@ async def audio_stream_websocket(websocket: WebSocket):
                         if function_responses:
                             logger.info(f"Sending {len(function_responses)} function responses to Gemini.")
                             await session.send_tool_response(function_responses=function_responses)
-                        # After sending tool response, continue the loop to get Gemini's next response (likely audio/text based on the function result)
+                        # After sending tool response, continue the loop to get Gemini's next response
 
                     # --- Handle Server Content (Audio/Text) ---
                     elif response.server_content and response.server_content.model_turn:

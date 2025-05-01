@@ -1,0 +1,104 @@
+[
+  {
+    "name": "getMenu",
+    "description": "Generates an Andhra-style menu, optionally filtering based on dietary restrictions.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "dietary_restrictions": {
+          "type": "string",
+          "description": "A list of strings representing",
+          "enum": null,
+          "default": null
+        }
+      },
+      "required": []
+    }
+  },
+  {
+    "name": "book_restaurant_reservation",
+    "description": "Simulates booking a restaurant reservation. A success message confirming the simulated reservation.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "date": {
+          "type": "string",
+          "description": null,
+          "enum": null,
+          "default": null
+        },
+        "time": {
+          "type": "string",
+          "description": null,
+          "enum": null,
+          "default": null
+        },
+        "no_of_people": {
+          "type": "number",
+          "description": null,
+          "enum": null,
+          "default": null
+        },
+        "notes": {
+          "type": "string",
+          "description": null,
+          "enum": null,
+          "default": ""
+        }
+      },
+      "required": [
+        "date",
+        "time",
+        "no_of_people"
+      ]
+    }
+  },
+  {
+    "name": "check_order_status",
+    "description": "Checks the status of an order",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "order_id": {
+          "type": "string",
+          "description": "The ID of the order to check.",
+          "enum": null,
+          "default": null
+        }
+      },
+      "required": [
+        "order_id"
+      ]
+    }
+  },
+  {
+    "name": "place_order",
+    "description": "Places a restaurant order.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "string",
+          "description": "A list of dictionaries, where each dict represents an item",
+          "enum": null,
+          "default": null
+        },
+        "order_type": {
+          "type": "string",
+          "description": "The type of order (e.g., \"dine-in\", \"takeout\", \"delivery\").",
+          "enum": null,
+          "default": "dine-in"
+        },
+        "table_number": {
+          "type": "string",
+          "description": "The table number for dine-in orders.",
+          "enum": null,
+          "default": null
+        }
+      },
+      "required": [
+        "items"
+      ]
+    }
+  }
+]

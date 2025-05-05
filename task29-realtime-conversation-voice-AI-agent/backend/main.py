@@ -4,8 +4,8 @@ import json
 import os
 import logging
 from dotenv import load_dotenv
-from fastapi import FastAPI, Request, Response, WebSocket, WebSocketDisconnect
-from fastapi.responses import PlainTextResponse
+from fastapi import FastAPI, Request, Response, WebSocket, WebSocketDisconnect, HTTPException
+from fastapi.responses import PlainTextResponse, JSONResponse
 from twilio.twiml.voice_response import VoiceResponse, Connect
 from google import genai
 from google.genai import types
@@ -13,6 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from utils.utils import mulaw8k_to_pcm16k, pcm24k_to_mulaw8k
 from utils.tool_executor import ToolExecutor  # Import our new ToolExecutor
 from utils.tools_router import router as tools_router  # Import our new router
+from pydantic import BaseModel  # Add Pydantic import for request models
 
 # --- Configuration & Setup ---
 load_dotenv() # Load environment variables from .env file
@@ -40,6 +41,30 @@ logger.debug(f"WebSocket URL for Twilio: {TWILIO_WEBSOCKET_URL}")
 GEMINI_MODEL_NAME = "gemini-2.0-flash-live-001"
 GEMINI_VOICE_NAME = "Puck"
 
+# --- System Prompt Management Functions ---
+def get_system_prompt():
+    """Retrieve the current system prompt from system.md file"""
+    try:
+        with open("system.md", "r") as f:
+            return f.read().strip()
+    except FileNotFoundError:
+        logger.error("system.md file not found")
+        return ""
+    except Exception as e:
+        logger.error(f"Error reading system.md: {e}")
+        return ""
+
+def update_system_prompt(new_content):
+    """Update the system.md file with new content"""
+    try:
+        with open("system.md", "w") as f:
+            f.write(new_content)
+        return True
+    except Exception as e:
+        logger.error(f"Error updating system.md: {e}")
+        return False
+
+# --- Update Gemini System Prompt reading to use the function ---
 with open("system.md", "r") as f:
     GEMINI_SYSTEM_PROMPT = f.read().strip()
 
@@ -445,6 +470,40 @@ async def audio_stream_websocket(websocket: WebSocket):
 
     logger.info(f"WebSocket handler finished for connection from: {websocket.client.host}")
     # reset_resample_states() # Clean up audio state
+
+
+# --- System Prompt Management Endpoints ---
+@app.get("/system-prompt", response_class=JSONResponse)
+async def read_system_prompt():
+    """Endpoint to get the current system prompt"""
+    content = get_system_prompt()
+    if not content:
+        raise HTTPException(status_code=500, detail="Failed to read system prompt")
+    return {"content": content}
+
+# Define Pydantic model for the system prompt update request
+class SystemPromptUpdate(BaseModel):
+    content: str
+
+@app.post("/system-prompt", response_class=JSONResponse)
+async def update_system_prompt_endpoint(prompt_data: SystemPromptUpdate):
+    """Endpoint to update the system prompt"""
+    try:
+        if not prompt_data.content:
+            raise HTTPException(status_code=400, detail="Content field is required")
+        
+        success = update_system_prompt(prompt_data.content)
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to update system prompt")
+        
+        # Update the global variable
+        global GEMINI_SYSTEM_PROMPT
+        GEMINI_SYSTEM_PROMPT = prompt_data.content
+        
+        return {"status": "success", "message": "System prompt updated successfully"}
+    except Exception as e:
+        logger.error(f"Error updating system prompt: {e}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 
 # --- Main Execution ---

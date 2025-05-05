@@ -1,59 +1,5 @@
 [
   {
-    "name": "getMenu",
-    "description": "Generates an Andhra-style menu, optionally filtering based on dietary restrictions.",
-    "parameters": {
-      "type": "object",
-      "properties": {
-        "dietary_restrictions": {
-          "type": "string",
-          "description": "A list of strings representing",
-          "enum": null,
-          "default": null
-        }
-      },
-      "required": []
-    }
-  },
-  {
-    "name": "book_restaurant_reservation",
-    "description": "Simulates booking a restaurant reservation. A success message confirming the simulated reservation.",
-    "parameters": {
-      "type": "object",
-      "properties": {
-        "date": {
-          "type": "string",
-          "description": null,
-          "enum": null,
-          "default": null
-        },
-        "time": {
-          "type": "string",
-          "description": null,
-          "enum": null,
-          "default": null
-        },
-        "no_of_people": {
-          "type": "number",
-          "description": null,
-          "enum": null,
-          "default": null
-        },
-        "notes": {
-          "type": "string",
-          "description": null,
-          "enum": null,
-          "default": ""
-        }
-      },
-      "required": [
-        "date",
-        "time",
-        "no_of_people"
-      ]
-    }
-  },
-  {
     "name": "check_order_status",
     "description": "Checks the status of an order",
     "parameters": {
@@ -98,6 +44,78 @@
       },
       "required": [
         "items"
+      ]
+    }
+  },
+  {
+    "name": "getMenu",
+    "description": "Generates an Andhra-style menu, optionally filtering based on dietary restrictions.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "dietary_restrictions": {
+          "type": "string",
+          "description": "A list of strings representing",
+          "enum": null,
+          "default": null
+        }
+      },
+      "required": []
+    }
+  },
+  {
+    "name": "book_restaurant_reservation",
+    "description": "Books a restaurant reservation A success message confirming the reservation or an error message.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "date": {
+          "type": "string",
+          "description": null,
+          "enum": null,
+          "default": null
+        },
+        "time": {
+          "type": "string",
+          "description": null,
+          "enum": null,
+          "default": null
+        },
+        "no_of_people": {
+          "type": "number",
+          "description": null,
+          "enum": null,
+          "default": null
+        },
+        "notes": {
+          "type": "string",
+          "description": null,
+          "enum": null,
+          "default": ""
+        }
+      },
+      "required": [
+        "date",
+        "time",
+        "no_of_people"
+      ]
+    }
+  },
+  {
+    "name": "getUserInfo",
+    "description": "Example API",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "username": {
+          "type": "string",
+          "description": null,
+          "enum": null,
+          "default": null
+        }
+      },
+      "required": [
+        "username"
       ]
     }
   }
